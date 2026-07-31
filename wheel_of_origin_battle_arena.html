@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Wheel of Origin — Battle Arena</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --gold: #d4a820;
+    --gold-bright: #f5e080;
+    --gold-deep: #a07008;
+    --bg0: #060402;
+    --bg1: #0d0906;
+    --bg2: #14100a;
+    --bg3: #1c1710;
+    --border: #3a2f18;
+    --text: #f0e8d8;
+    --a-color: #2a6ad0;   /* Champion A — blue */
+    --a-deep: #1a3e7a;
+    --b-color: #d03a2a;   /* Champion B — red */
+    --b-deep: #7a1e14;
+  }
+
+  html, body {
+    background: #000;
+    color: var(--text);
+    font-family: 'Nunito', system-ui, sans-serif;
+    height: 100%;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Portrait 9:16 app frame — scales up on tablets/iPad */
+  #app {
+    position: relative;
+    width: 100%;
+    max-width: 56.25vh;  /* true 9:16 — width follows height so it fills iPad screen height */
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0 auto;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(60,40,10,0.35) 0%, transparent 55%),
+      linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 100%);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* On larger screens (iPad), scale everything up proportionally */
+  @media (min-width: 620px) and (min-height: 820px) {
+    html { font-size: 19px; }
+    #battle-canvas { max-width: 420px !important; }
+    .champ-name { font-size: 20px !important; }
+    .category-name { font-size: 30px !important; }
+    .stat-cell .v { font-size: 18px !important; }
+    .odds-box .pct { font-size: 32px !important; }
+    #screen-start .title-main { font-size: 38px !important; }
+  }
+  @media (min-width: 900px) and (min-height: 1100px) {
+    html { font-size: 21px; }
+    #battle-canvas { max-width: 480px !important; }
+  }
+
+  .fantasy-heading {
+    font-family: 'Cinzel Decorative', serif;
+    font-weight: 900;
+    background-image: linear-gradient(180deg, #fffbe8 0%, #f0d878 20%, #c8980a 45%, #e8c84a 60%, #a07008 75%, #d4a820 90%, #f5e080 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 1px;
+  }
+
+  .cinzel { font-family: 'Cinzel', serif; }
+  .deco   { font-family: 'Cinzel Decorative', serif; }
+
+  .divider {
+    display: flex; align-items: center; gap: 12px; margin: 10px 0;
+  }
+  .divider .line { flex: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(210,175,90,0.4), transparent); }
+  .divider .dot  { color: var(--gold); font-size: 10px; }
+
+  /* Screens */
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+  .screen.active { display: flex; }
+
+  /* Buttons */
+  .btn {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--bg3) 0%, var(--bg1) 100%);
+    color: var(--gold-bright);
+    padding: 13px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: transform 0.1s, border-color 0.2s, box-shadow 0.2s;
+    text-align: center;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:hover { border-color: var(--gold-deep); box-shadow: 0 0 12px rgba(212,168,32,0.15); }
+  .btn.primary {
+    background: linear-gradient(180deg, #4a3810 0%, #2a1f08 100%);
+    border-color: var(--gold-deep);
+    color: var(--gold-bright);
+    font-size: 15px;
+    padding: 15px 20px;
+  }
+  .btn.primary:hover { box-shadow: 0 0 20px rgba(212,168,32,0.3); }
+  .btn.small { font-size: 11px; padding: 9px 12px; }
+  .btn.wide { width: 100%; }
+  .btn.danger { color: #ff9988; border-color: #6a2418; }
+  .btn.ghost { background: transparent; border-color: #2a2418; color: #a89868; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-row .btn { flex: 1; min-width: 0; }
+
+  /* Tier badges */
+  .tier-badge {
+    display: inline-block;
+    font-family: 'Cinzel', serif;
+    font-size: 9px; font-weight: 700;
+    padding: 1px 7px; border-radius: 5px;
+    letter-spacing: 0.5px; vertical-align: middle;
+  }
+
+  /* Start screen */
+  #screen-start { align-items: center; justify-content: center; padding: 32px 24px; text-align: center; gap: 4px; }
+  #screen-start .title-main { font-size: 30px; line-height: 1.05; margin-bottom: 2px; }
+  #screen-start .title-sub  { font-size: 15px; letter-spacing: 5px; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
+  #screen-start .tag { font-family:'Cinzel',serif; font-size: 10px; letter-spacing: 3px; color: rgba(210,175,80,0.6); text-transform: uppercase; margin-bottom: 26px; }
+  #screen-start .start-btns { display: flex; flex-direction: column; gap: 11px; width: 100%; max-width: 300px; }
+  #import-status { margin-top: 16px; font-size: 12px; min-height: 20px; max-width: 320px; }
+  .warn { color: #f0b840; }
+  .err  { color: #ff7060; }
+  .ok   { color: #78d078; }
+
+  /* Header bar (in-tournament) */
+  #top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(28,20,8,0.6), transparent);
+    flex-shrink: 0;
+  }
+  #top-bar .round-label { font-family:'Cinzel',serif; font-size: 12px; font-weight: 700; color: var(--gold); letter-spacing: 1px; }
+  #top-bar .match-label { font-size: 10px; color: #8a7a50; margin-top: 1px; }
+  #top-bar .top-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg2);
+    color: var(--gold); font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:active { background: var(--bg3); }
+
+  /* Champion cards (VS screen) */
+  .vs-wrap { flex: 1; overflow-y: auto; padding: 12px 12px 20px; }
+  .vs-title { text-align: center; font-family:'Cinzel Decorative',serif; font-size: 13px; color: var(--gold); letter-spacing: 2px; margin: 4px 0 10px; }
+
+  .champ-card {
+    border-radius: 14px; padding: 12px 13px; margin-bottom: 10px;
+    border: 1px solid; position: relative; overflow: hidden;
+  }
+  .champ-card.side-a { border-color: var(--a-deep); background: linear-gradient(160deg, rgba(42,106,208,0.14) 0%, rgba(10,14,28,0.5) 60%); }
+  .champ-card.side-b { border-color: var(--b-deep); background: linear-gradient(160deg, rgba(208,58,42,0.14) 0%, rgba(28,10,10,0.5) 60%); }
+  .champ-card .side-tag {
+    position: absolute; top: 0; right: 0; font-family:'Cinzel',serif;
+    font-size: 9px; font-weight: 800; letter-spacing: 1px; padding: 3px 9px;
+    border-bottom-left-radius: 8px;
+  }
+  .champ-card.side-a .side-tag { background: var(--a-color); color: #fff; }
+  .champ-card.side-b .side-tag { background: var(--b-color); color: #fff; }
+  .champ-name { font-family:'Cinzel Decorative',serif; font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 2px; padding-right: 46px; line-height: 1.1; }
+  .champ-origin { font-size: 11px; color: #b0a074; margin-bottom: 8px; }
+  .champ-origin .prof { color: var(--gold); }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 9px; }
+  .stat-cell { text-align: center; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 4px 2px; }
+  .stat-cell .k { font-size: 8px; color: #7a6e4a; font-weight: 700; letter-spacing: 0.5px; }
+  .stat-cell .v { font-size: 15px; font-weight: 900; color: var(--text); }
+
+  .gear-list { display: flex; flex-direction: column; gap: 3px; }
+  .gear-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .gear-row .gk { color: #7a6e4a; min-width: 62px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .gear-row .gv { color: #d8cca8; flex: 1; }
+  .combo-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .combo-chip { font-size: 9px; background: rgba(212,168,32,0.14); border: 1px solid rgba(212,168,32,0.3); color: var(--gold-bright); padding: 2px 7px; border-radius: 20px; font-weight: 700; }
+  .pscore { margin-top: 8px; text-align: center; font-family:'Cinzel',serif; font-size: 11px; color: #8a7a50; padding-right: 38px; }
+  .pscore b { color: var(--gold); font-size: 14px; }
+
+  .vs-badge {
+    text-align: center; font-family:'Cinzel Decorative',serif; font-weight: 900;
+    font-size: 22px; color: var(--gold); margin: 2px 0 8px;
+    text-shadow: 0 0 18px rgba(212,168,32,0.4);
+  }
+
+  /* Battle screen */
+  #screen-battle { padding: 0; }
+  .battle-head { text-align: center; padding: 10px 12px 4px; flex-shrink: 0; }
+  .category-name {
+    font-family:'Cinzel Decorative',serif; font-size: 24px; font-weight: 900;
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+  .category-name.attack  { color: #ff6a4a; text-shadow: 0 0 20px rgba(255,80,40,0.35); }
+  .category-name.defense { color: #4a9aff; text-shadow: 0 0 20px rgba(60,120,255,0.35); }
+  .category-name.special { color: #c060ff; text-shadow: 0 0 20px rgba(180,80,255,0.35); }
+  .category-desc { font-size: 10px; color: #7a6e4a; letter-spacing: 1px; margin-top: 1px; }
+
+  .score-strip {
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    padding: 6px; font-family:'Cinzel',serif; flex-shrink: 0;
+  }
+  .score-strip .sc-name { font-size: 11px; font-weight: 700; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .score-strip .sc-name.a { color: #6aa0f0; text-align: right; }
+  .score-strip .sc-name.b { color: #f0806a; text-align: left; }
+  .score-strip .sc-num { font-size: 24px; font-weight: 900; color: #fff; }
+  .score-strip .sc-dash { color: #6a5e3a; font-size: 18px; }
+
+  .wheel-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 12px; min-height: 0; position: relative; }
+  #battle-canvas { width: 100%; max-width: 340px; height: auto; }
+
+  .odds-row { display: flex; width: 100%; max-width: 340px; justify-content: space-between; margin-top: 8px; }
+  .odds-box { text-align: center; flex: 1; }
+  .odds-box.a .pct { color: #6aa0f0; }
+  .odds-box.b .pct { color: #f0806a; }
+  .odds-box .pct { font-family:'Cinzel',serif; font-size: 26px; font-weight: 900; line-height: 1; }
+  .odds-box .wt  { font-size: 9px; color: #7a6e4a; letter-spacing: 0.5px; margin-top: 2px; }
+  .odds-box .nm  { font-size: 10px; color: #a89868; max-width: 130px; margin: 2px auto 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Formula breakdown */
+  .formula-wrap { display: flex; gap: 8px; width: 100%; max-width: 340px; margin-top: 8px; }
+  .formula-box { flex: 1; background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 10px; padding: 7px 9px; }
+  .formula-box.a { border-color: var(--a-deep); }
+  .formula-box.b { border-color: var(--b-deep); }
+  .formula-box .fh { font-size: 9px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; text-align: center; }
+  .formula-box.a .fh { color: #6aa0f0; }
+  .formula-box.b .fh { color: #f0806a; }
+  .formula-box .fr { display: flex; justify-content: space-between; font-size: 10px; color: #b0a480; padding: 1px 0; }
+  .formula-box .fr.total { border-top: 1px solid var(--border); margin-top: 3px; padding-top: 3px; font-weight: 800; color: var(--gold-bright); }
+
+  .battle-result-banner {
+    text-align: center; font-family:'Cinzel Decorative',serif; font-weight: 900;
+    font-size: 18px; padding: 8px; letter-spacing: 1px; min-height: 20px;
+  }
+  .upset-flash { color: #ffcc00 !important; text-shadow: 0 0 20px rgba(255,200,0,0.6); animation: upsetPulse 0.5s ease; }
+  @keyframes upsetPulse { 0% { transform: scale(0.7); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+
+  .battle-controls { padding: 8px 12px 14px; flex-shrink: 0; display: flex; flex-direction: column; gap: 7px; }
+
+  /* Bracket overlay */
+  #bracket-overlay { position: absolute; inset: 0; background: rgba(4,3,1,0.97); z-index: 100; display: none; flex-direction: column; }
+  #bracket-overlay.active { display: flex; }
+  .bracket-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .bracket-scroll { flex: 1; overflow: auto; padding: 12px; }
+  .round-col { margin-bottom: 16px; }
+  .round-col h3 { font-family:'Cinzel',serif; font-size: 12px; color: var(--gold); letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
+  .bracket-match { display: flex; align-items: stretch; gap: 6px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; margin-bottom: 5px; font-size: 11px; }
+  .bracket-match .bm-num { color: #6a5e3a; font-size: 9px; align-self: center; min-width: 20px; }
+  .bracket-match .bm-champs { flex: 1; }
+  .bracket-match .bm-c { padding: 1px 0; display: flex; justify-content: space-between; }
+  .bracket-match .bm-c.winner { color: var(--gold-bright); font-weight: 700; }
+  .bracket-match .bm-c.loser { color: #6a6050; text-decoration: line-through; opacity: 0.7; }
+  .bracket-match .bm-c .bm-score { color: #8a7a50; }
+  .bracket-match .bm-c.pending { color: #7a6e4a; font-style: italic; }
+
+  /* GOAT screen */
+  #screen-goat { align-items: center; padding: 24px 20px; text-align: center; overflow-y: auto; }
+  .goat-crown { font-size: 48px; margin: 8px 0; animation: crownFloat 3s ease-in-out infinite; }
+  @keyframes crownFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .goat-label { font-family:'Cinzel Decorative',serif; font-size: 16px; letter-spacing: 6px; color: var(--gold); text-transform: uppercase; }
+  .goat-name { font-family:'Cinzel Decorative',serif; font-size: 32px; font-weight: 900; margin: 6px 0; line-height: 1.05; }
+  .goat-section { width: 100%; max-width: 340px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin: 8px 0; text-align: left; }
+  .goat-section h4 { font-family:'Cinzel',serif; font-size: 11px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 7px; text-align: center; }
+
+  /* Toast */
+  #toast {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(20,16,8,0.96); border: 1px solid var(--gold-deep); color: var(--gold-bright);
+    padding: 10px 18px; border-radius: 10px; font-size: 12px; font-weight: 700;
+    z-index: 200; opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none;
+    max-width: 85%; text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .hidden-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+  /* Stat editor */
+  .edit-champ-btn {
+    position: absolute; bottom: 8px; right: 8px;
+    width: 30px; height: 30px;
+    background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--gold); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0.5;
+  }
+  .edit-champ-btn:hover { opacity: 1; }
+  .edit-champ-btn:active { background: rgba(0,0,0,0.7); }
+
+  #editor-overlay {
+    position: absolute; inset: 0; background: rgba(4,3,1,0.97); z-index: 150;
+    display: none; flex-direction: column;
+  }
+  #editor-overlay.active { display: flex; }
+  .editor-scroll { flex: 1; overflow-y: auto; padding: 14px; }
+  .editor-name { font-family:'Cinzel Decorative',serif; font-size: 18px; color: #fff; text-align: center; margin-bottom: 4px; }
+  .editor-sub { text-align: center; font-size: 11px; color: #8a7a50; margin-bottom: 16px; }
+  .ed-section-title { font-family:'Cinzel',serif; font-size: 11px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; margin: 14px 0 8px; }
+  .ed-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .ed-field { display: flex; flex-direction: column; gap: 3px; }
+  .ed-field label { font-size: 10px; color: #8a7a50; font-weight: 700; letter-spacing: 0.5px; }
+  .ed-field input, .ed-field select {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 15px; font-weight: 700;
+    padding: 9px 10px; width: 100%; text-align: center;
+  }
+  .ed-field select { text-align: left; font-size: 13px; }
+  .ed-field input:focus, .ed-field select:focus { outline: none; border-color: var(--gold-deep); }
+  .ed-tier-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .editor-actions { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0; }
+  .ed-live-rating { text-align: center; font-family:'Cinzel',serif; font-size: 12px; color: #8a7a50; margin-top: 12px; }
+  .ed-live-rating b { color: var(--gold-bright); font-size: 16px; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #3a2f18; border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════ START SCREEN ══════════════ -->
+  <div id="screen-start" class="screen active">
+    <div class="title-sub deco">Wheel of Origin</div>
+    <div class="title-main fantasy-heading">Battle Arena</div>
+    <div class="tag">— Season 1 · 64 Champions · One GOAT —</div>
+
+    <div class="start-btns">
+      <button class="btn primary" id="btn-import">⚔ Import Season JSON(s)</button>
+      <button class="btn" id="btn-load">↺ Load Saved Tournament</button>
+      <button class="btn ghost" id="btn-demo">▶ Start Demo Match</button>
+    </div>
+    <div id="import-status"></div>
+    <input type="file" id="file-input" class="hidden-file" accept=".json,application/json" multiple>
+  </div>
+
+  <!-- ══════════════ VS / CHAMPION CARDS ══════════════ -->
+  <div id="screen-vs" class="screen">
+    <div id="top-bar">
+      <div>
+        <div class="round-label" id="vs-round">Round of 64</div>
+        <div class="match-label" id="vs-match">Match 1 of 32</div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="vs-bracket-btn" title="Bracket">🏆</button>
+        <button class="icon-btn" id="vs-menu-btn" title="Menu">☰</button>
+      </div>
+    </div>
+    <div class="vs-wrap" id="vs-cards"></div>
+    <div class="battle-controls">
+      <button class="btn primary wide" id="btn-begin-match">Begin Battle ⚔</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ BATTLE SCREEN ══════════════ -->
+  <div id="screen-battle" class="screen">
+    <div class="battle-head">
+      <div class="category-name" id="cat-name">Attack</div>
+      <div class="category-desc" id="cat-desc"></div>
+    </div>
+    <div class="score-strip">
+      <div class="sc-name a" id="score-name-a">A</div>
+      <span class="sc-num" id="score-a">0</span>
+      <span class="sc-dash">—</span>
+      <span class="sc-num" id="score-b">0</span>
+      <div class="sc-name b" id="score-name-b">B</div>
+    </div>
+
+    <div class="wheel-stage">
+      <canvas id="battle-canvas" width="340" height="340"></canvas>
+      <div class="odds-row">
+        <div class="odds-box a">
+          <div class="pct" id="odds-pct-a">50%</div>
+          <div class="wt" id="odds-wt-a">Weight 0</div>
+          <div class="nm" id="odds-nm-a">Champion A</div>
+        </div>
+        <div class="odds-box b">
+          <div class="pct" id="odds-pct-b">50%</div>
+          <div class="wt" id="odds-wt-b">Weight 0</div>
+          <div class="nm" id="odds-nm-b">Champion B</div>
+        </div>
+      </div>
+      <div class="formula-wrap">
+        <div class="formula-box a" id="formula-a"></div>
+        <div class="formula-box b" id="formula-b"></div>
+      </div>
+    </div>
+
+    <div class="battle-result-banner" id="result-banner"></div>
+
+    <div class="battle-controls">
+      <button class="btn primary wide" id="btn-spin">Spin ⚡</button>
+      <div class="btn-row">
+        <button class="btn small" id="btn-continue" disabled>Continue →</button>
+        <button class="btn small" id="btn-replay" disabled>↻ Replay Wheel</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn small ghost" id="btn-restart-match">Restart Match</button>
+        <button class="btn small ghost" id="btn-undo">↩ Undo Result</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ MATCH RESULT ══════════════ -->
+  <div id="screen-matchresult" class="screen" style="align-items:center;justify-content:center;padding:24px;text-align:center;">
+    <div id="mr-content"></div>
+  </div>
+
+  <!-- ══════════════ GOAT SCREEN ══════════════ -->
+  <div id="screen-goat" class="screen">
+    <div id="goat-content"></div>
+  </div>
+
+  <!-- ══════════════ BRACKET OVERLAY ══════════════ -->
+  <div id="bracket-overlay">
+    <div class="bracket-head">
+      <div class="round-label deco" style="color:var(--gold);font-size:14px;">Tournament Bracket</div>
+      <button class="icon-btn" id="bracket-close">✕</button>
+    </div>
+    <div class="bracket-scroll" id="bracket-body"></div>
+  </div>
+
+  <!-- ══════════════ MENU OVERLAY ══════════════ -->
+  <div id="bracket-overlay" class="menu-ov" style="display:none;"></div>
+
+  <!-- ══════════════ STAT EDITOR OVERLAY ══════════════ -->
+  <div id="editor-overlay">
+    <div class="bracket-head">
+      <div class="round-label deco" style="color:var(--gold);font-size:14px;">Edit Champion</div>
+      <button class="icon-btn" id="editor-close">✕</button>
+    </div>
+    <div class="editor-scroll" id="editor-body"></div>
+    <div class="editor-actions">
+      <button class="btn ghost" id="editor-cancel" style="flex:1;">Cancel</button>
+      <button class="btn primary" id="editor-save" style="flex:2;">Save Changes</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════════
+   WHEEL OF ORIGIN — BATTLE ARENA
+   Standalone app. Imports finished champions and runs battles.
+   Does NOT generate or modify champion stats.
+   ═══════════════════════════════════════════════════════════════════ */
+
+// ── TIER COLORS (matches Wheel of Origin identity) ──────────────────
+const TIER_COLORS = {
+  None:      { bg: '#2a2a3a', text: '#9999aa' },
+  Trash:     { bg: '#7a7a7a', text: '#e8e8e8' },
+  Common:    { bg: '#555560', text: '#d8d8e4' },
+  Uncommon:  { bg: '#2a7a3a', text: '#c8f0cc' },
+  Rare:      { bg: '#1e4e9a', text: '#c0d8f8' },
+  Epic:      { bg: '#62248a', text: '#e8c8f8' },
+  Legendary: { bg: '#a07800', text: '#f8eaaa' },
+  OP:        { bg: '#8a1010', text: '#f8cccc' },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// 3. CENTRAL BATTLE CONFIG — all balancing lives here
+// ═══════════════════════════════════════════════════════════════════
+const BATTLE_CONFIG = {
+  minimumWeight: 1,
+
+  tierBonus: {
+    None: 0, Trash: 0, Common: 0,
+    Uncommon: 0.5, Rare: 1, Epic: 1.5, Legendary: 2, OP: 3
+  },
+
+  comboBonusPerCombo: 1.25,
+  maximumComboBonus: 5,
+
+  formulas: {
+    attack:  { STR: 1, PM: 1 },
+    defense: { DUR: 1, DEF: 1 },
+    special: { IQ: 1, SPD: 1 }
+  },
+
+  upsetThreshold: 0.35   // winner under 35% pre-spin = upset
+};
+
+const STORAGE_KEY = 'wheel_of_origin_battle_season_1';
+
+// ── Tier bonus helper ───────────────────────────────────────────────
+function getTierBonus(tier) {
+  if (!tier) return 0;
+  return BATTLE_CONFIG.tierBonus[tier] ?? 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 4. WEIGHT FORMULAS
+//    Final item stat changes are ALREADY inside champion.stats.
+//    Tier bonuses only represent item quality/utility — never re-add raw stats.
+// ═══════════════════════════════════════════════════════════════════
+
+// ATTACK = STR + PM + WeaponTierBonus + PowerTierBonus
+function calculateAttackWeight(champion) {
+  return Math.max(
+    BATTLE_CONFIG.minimumWeight,
+    Number(champion.stats?.STR || 0)
+    + Number(champion.stats?.PM || 0)
+    + getTierBonus(champion.tiers?.weapon)
+    + getTierBonus(champion.tiers?.power)
+  );
+}
+
+// DEFENSE = DUR + DEF + ArmorTierBonus + half CompanionTierBonus
+function calculateDefenseWeight(champion) {
+  return Math.max(
+    BATTLE_CONFIG.minimumWeight,
+    Number(champion.stats?.DUR || 0)
+    + Number(champion.stats?.DEF || 0)
+    + getTierBonus(champion.tiers?.armor)
+    + getTierBonus(champion.tiers?.companion) * 0.5
+  );
+}
+
+// SPECIAL = IQ + SPD + BlessingCurseTierBonus + ComboBonus
+function calculateSpecialWeight(champion) {
+  const comboCount = Array.isArray(champion.combos) ? champion.combos.length : 0;
+  const comboBonus = Math.min(
+    BATTLE_CONFIG.maximumComboBonus,
+    comboCount * BATTLE_CONFIG.comboBonusPerCombo
+  );
+  return Math.max(
+    BATTLE_CONFIG.minimumWeight,
+    Number(champion.stats?.IQ || 0)
+    + Number(champion.stats?.SPD || 0)
+    + getTierBonus(champion.tiers?.blessingCurse)
+    + comboBonus
+  );
+}
+
+// Detailed breakdown for the formula display panels
+function getAttackBreakdown(c) {
+  return [
+    ['STR', Number(c.stats?.STR || 0)],
+    ['PM', Number(c.stats?.PM || 0)],
+    ['Weapon', getTierBonus(c.tiers?.weapon)],
+    ['Power', getTierBonus(c.tiers?.power)],
+  ];
+}
+function getDefenseBreakdown(c) {
+  return [
+    ['DUR', Number(c.stats?.DUR || 0)],
+    ['DEF', Number(c.stats?.DEF || 0)],
+    ['Armor', getTierBonus(c.tiers?.armor)],
+    ['Comp', getTierBonus(c.tiers?.companion) * 0.5],
+  ];
+}
+function getSpecialBreakdown(c) {
+  const comboCount = Array.isArray(c.combos) ? c.combos.length : 0;
+  const comboBonus = Math.min(BATTLE_CONFIG.maximumComboBonus, comboCount * BATTLE_CONFIG.comboBonusPerCombo);
+  return [
+    ['IQ', Number(c.stats?.IQ || 0)],
+    ['SPD', Number(c.stats?.SPD || 0)],
+    ['Bless', getTierBonus(c.tiers?.blessingCurse)],
+    ['Combo', comboBonus],
+  ];
+}
+
+const CATEGORIES = {
+  attack:  { label: 'Attack',  desc: 'Physical force & power output', fn: calculateAttackWeight,  bd: getAttackBreakdown,  cls: 'attack'  },
+  defense: { label: 'Defense', desc: 'Durability & protection',       fn: calculateDefenseWeight, bd: getDefenseBreakdown, cls: 'defense' },
+  special: { label: 'Special', desc: 'Wits, speed, fate & synergy',   fn: calculateSpecialWeight, bd: getSpecialBreakdown, cls: 'special' },
+};
+const CATEGORY_ORDER = ['attack', 'defense', 'special'];
+
+// Total battle rating — DISPLAY / STATS ONLY, never decides winner
+function getTotalBattleRating(c) {
+  return calculateAttackWeight(c) + calculateDefenseWeight(c) + calculateSpecialWeight(c);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 5. ODDS CALCULATION
+// ═══════════════════════════════════════════════════════════════════
+function calculateOdds(weightA, weightB) {
+  const total = weightA + weightB;
+  if (total <= 0) return { a: 0.5, b: 0.5 };
+  return { a: weightA / total, b: weightB / total };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════════════════════════════════════════
+let TOURNAMENT = null;   // full tournament object (persisted)
+let champions = [];      // imported champion list
+
+/* Tournament shape:
+   {
+     champions: [...],
+     bracket: [ round0[], round1[], ... ],   // array of rounds, each = array of matches
+     currentRound: 0,
+     currentMatch: 0,
+     goat: championObj | null
+   }
+   Match shape:
+   {
+     a: champIndexOrObj, b: ...,
+     scoreA: 0, scoreB: 0,
+     catResults: [ {cat, winner:'a'|'b', wA, wB, oddsA, upset} ],
+     winner: 'a'|'b'|null,
+     done: false
+   }
+*/
+
+// ── Utility ─────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function toast(msg, ms = 2000) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.remove('show'), ms);
+}
+function tierBadge(tier) {
+  if (!tier) return '';
+  const tc = TIER_COLORS[tier] || TIER_COLORS.Common;
+  return `<span class="tier-badge" style="background:${tc.bg};color:${tc.text};">${tier}</span>`;
+}
+function champLabel(c) {
+  return c ? (c.name || 'Unnamed') : 'BYE';
+}
+function championOrigin(c) {
+  const parts = [];
+  if (c.race) parts.push(c.race);
+  if (c.subrace && c.subrace !== 'None' && c.subrace !== 'No Subrace') parts.push(c.subrace);
+  return parts.join(' · ') || '—';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// IMPORT / VALIDATION
+// ═══════════════════════════════════════════════════════════════════
+// Resolve a usable champion name. Many exports use the placeholder "Champion",
+// so fall back to race/profession to keep champions distinguishable.
+function resolveChampionName(raw, idx) {
+  const n = (raw.name || raw.championName || '').trim();
+  if (n && n.toLowerCase() !== 'champion') return n;
+  // Placeholder or empty → build from race (+ profession) so it's unique-ish
+  const parts = [];
+  if (raw.race) parts.push(raw.race);
+  if (raw.profession) parts.push(raw.profession);
+  if (parts.length) return parts.join(' ') + ' #' + (idx + 1);
+  return 'Champion ' + (idx + 1);
+}
+
+function normalizeChampion(raw, idx) {
+  // Accept either the full save-object or a flatter shape.
+  const stats = raw.stats || {};
+  const tiers = raw.tiers || {};
+  return {
+    id: idx,
+    name: resolveChampionName(raw, idx),
+    race: raw.race || null,
+    subrace: raw.subrace || null,
+    profession: raw.profession || null,
+    stats: {
+      STR: Number(stats.STR || 0),
+      IQ:  Number(stats.IQ  || 0),
+      SPD: Number(stats.SPD || 0),
+      DUR: Number(stats.DUR || 0),
+      PM:  Number(stats.PM  || 0),
+      DEF: Number(stats.DEF || 0),
+    },
+    companion: raw.companion || null,
+    weapon: raw.weapon || null,
+    enchantment: raw.enchantment || null,
+    armor: raw.armor || null,
+    power: raw.power || null,
+    blessingCurse: raw.blessingCurse || null,
+    tiers: {
+      race: tiers.race || null,
+      subrace: tiers.subrace || null,
+      profession: tiers.profession || null,
+      companion: tiers.companion || null,
+      weapon: tiers.weapon || null,
+      enchantment: tiers.enchantment || null,
+      armor: tiers.armor || null,
+      power: tiers.power || null,
+      blessingCurse: tiers.blessingCurse || null,
+    },
+    combos: Array.isArray(raw.combos) ? raw.combos.slice() : [],
+    powerScore: Number(raw.powerScore || 0),
+  };
+}
+
+function parseChampionsPayload(json) {
+  let list = null;
+  if (Array.isArray(json)) list = json;
+  else if (Array.isArray(json.champions)) list = json.champions;
+  // A single champion object (has stats or a name) counts as a one-champion file
+  else if (json && (json.stats || json.name || json.championName)) list = [json];
+  if (!list) throw new Error('Kein "champions"-Array gefunden.');
+  if (list.length === 0) throw new Error('Champion-Liste ist leer.');
+  return list.map(normalizeChampion);
+}
+
+// Pad champion count up to the next power of two using BYEs
+function nextPowerOfTwo(n) { let p = 1; while (p < n) p *= 2; return p; }
+
+function handleImportedChampions(list, extraNote = '') {
+  champions = list;
+  const status = $('import-status');
+  const count = champions.length;
+  const target = nextPowerOfTwo(count);
+  const byes = target - count;
+
+  let msg = `<span class="ok">✓ ${count} Champions importiert.</span>`;
+  if (count < 2) {
+    status.innerHTML = `<span class="err">Mindestens 2 Champions nötig.</span>` + extraNote;
+    return;
+  }
+  if (byes > 0) {
+    msg += `<br><span class="warn">Bracket auf ${target} Plätze aufgefüllt (${byes} BYE${byes>1?'s':''}).</span>`;
+  }
+  // Render note + button together, THEN wire the handler (so += never wipes it)
+  status.innerHTML = msg + extraNote +
+    `<br><br><button class="btn primary wide" id="btn-create-tourney">Create Tournament →</button>`;
+  $('btn-create-tourney').onclick = () => { createTournament(champions); };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BRACKET CREATION
+// ═══════════════════════════════════════════════════════════════════
+function seededShuffle(arr) {
+  // Simple Fisher-Yates
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function roundName(numChampsInRound) {
+  switch (numChampsInRound) {
+    case 2:  return 'Grand Final';
+    case 4:  return 'Semifinals';
+    case 8:  return 'Quarterfinals';
+    case 16: return 'Round of 16';
+    case 32: return 'Round of 32';
+    case 64: return 'Round of 64';
+    case 128:return 'Round of 128';
+    default: return `Round of ${numChampsInRound}`;
+  }
+}
+
+function createTournament(champList) {
+  const target = nextPowerOfTwo(champList.length);
+  // Seed by powerScore (descending) so BYEs go to strongest, classic seeding feel
+  const seeded = champList.slice().sort((a, b) =>
+    getTotalBattleRating(b) - getTotalBattleRating(a));
+
+  // Pad with BYE (null) entries
+  const padded = seeded.slice();
+  while (padded.length < target) padded.push(null);
+
+  // Standard seed pairing: 1 vs last, 2 vs second-last, etc.
+  const firstRound = [];
+  for (let i = 0; i < target / 2; i++) {
+    const a = padded[i];
+    const b = padded[target - 1 - i];
+    firstRound.push(makeMatch(a, b));
+  }
+
+  TOURNAMENT = {
+    champions: champList,
+    bracket: [firstRound],
+    currentRound: 0,
+    currentMatch: 0,
+    goat: null,
+  };
+
+  // Auto-resolve BYE matches immediately
+  autoResolveByes();
+  saveTournament();
+  goToCurrentMatch();
+}
+
+function makeMatch(a, b) {
+  return {
+    a: a, b: b,
+    scoreA: 0, scoreB: 0,
+    catResults: [],
+    winner: null,
+    done: false,
+  };
+}
+
+function autoResolveByes() {
+  const round = TOURNAMENT.bracket[TOURNAMENT.currentRound];
+  round.forEach(m => {
+    if (m.done) return;
+    if (m.a && !m.b) { m.winner = 'a'; m.done = true; m.bye = true; }
+    else if (!m.a && m.b) { m.winner = 'b'; m.done = true; m.bye = true; }
+    else if (!m.a && !m.b) { m.winner = null; m.done = true; m.bye = true; }
+  });
+  advanceIfRoundComplete();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MATCH NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function currentRound() { return TOURNAMENT.bracket[TOURNAMENT.currentRound]; }
+function currentMatch() { return currentRound()[TOURNAMENT.currentMatch]; }
+
+function findNextPlayableMatch() {
+  const round = currentRound();
+  for (let i = 0; i < round.length; i++) {
+    if (!round[i].done) { TOURNAMENT.currentMatch = i; return round[i]; }
+  }
+  return null;
+}
+
+function goToCurrentMatch() {
+  const next = findNextPlayableMatch();
+  if (!next) {
+    advanceIfRoundComplete();
+    return;
+  }
+  renderVsScreen();
+  showScreen('screen-vs');
+}
+
+function advanceIfRoundComplete() {
+  const round = currentRound();
+  if (!round.every(m => m.done)) return;
+
+  // Gather winners
+  const winners = round.map(m => {
+    if (m.winner === 'a') return m.a;
+    if (m.winner === 'b') return m.b;
+    return null;
+  });
+
+  if (winners.length === 1) {
+    // Champion decided
+    TOURNAMENT.goat = winners[0];
+    saveTournament();
+    renderGoat();
+    showScreen('screen-goat');
+    return;
+  }
+
+  // Build next round
+  const nextRound = [];
+  for (let i = 0; i < winners.length; i += 2) {
+    nextRound.push(makeMatch(winners[i], winners[i + 1]));
+  }
+  TOURNAMENT.bracket.push(nextRound);
+  TOURNAMENT.currentRound++;
+  TOURNAMENT.currentMatch = 0;
+  autoResolveByes();
+  saveTournament();
+  if (TOURNAMENT.goat) return; // resolved during recursion
+  goToCurrentMatch();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════════════════════════════
+function saveTournament() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(TOURNAMENT)); }
+  catch (e) { /* storage may be unavailable */ }
+}
+function loadTournament() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    TOURNAMENT = JSON.parse(raw);
+    champions = TOURNAMENT.champions || [];
+    return true;
+  } catch { return false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VS SCREEN RENDER
+// ═══════════════════════════════════════════════════════════════════
+function statGrid(c) {
+  const s = c.stats;
+  const keys = ['STR','IQ','SPD','DUR','PM','DEF'];
+  return `<div class="stat-grid">${keys.map(k =>
+    `<div class="stat-cell"><div class="k">${k}</div><div class="v">${s[k]}</div></div>`
+  ).join('')}</div>`;
+}
+function gearRows(c) {
+  const rows = [
+    ['Weapon', c.weapon, c.tiers.weapon],
+    ['Armor', c.armor, c.tiers.armor],
+    ['Companion', c.companion, c.tiers.companion],
+    ['Power', c.power, c.tiers.power],
+    ['Bless/Curse', c.blessingCurse, c.tiers.blessingCurse],
+  ];
+  return `<div class="gear-list">${rows.map(([k,v,t]) =>
+    v ? `<div class="gear-row"><span class="gk">${k}</span><span class="gv">${v} ${t?tierBadge(t):''}</span></div>` : ''
+  ).join('')}</div>`;
+}
+function comboChips(c) {
+  if (!c.combos || !c.combos.length) return '';
+  return `<div class="combo-chips">${c.combos.map(cn => `<span class="combo-chip">✨ ${cn}</span>`).join('')}</div>`;
+}
+function championCardHTML(c, side) {
+  if (!c) {
+    return `<div class="champ-card side-${side}"><div class="side-tag">${side==='a'?'BLUE':'RED'}</div>
+      <div class="champ-name">— BYE —</div><div class="champ-origin">No opponent</div></div>`;
+  }
+  const rating = getTotalBattleRating(c);
+  return `<div class="champ-card side-${side}">
+    <div class="side-tag">${side==='a'?'BLUE':'RED'}</div>
+    <button class="edit-champ-btn" onclick="openStatEditor('${side}')" title="Stats bearbeiten">✎</button>
+    <div class="champ-name">${c.name}</div>
+    <div class="champ-origin">${championOrigin(c)}${c.profession?` · <span class="prof">${c.profession}</span>`:''}</div>
+    ${statGrid(c)}
+    ${gearRows(c)}
+    ${comboChips(c)}
+    <div class="pscore">Battle Rating <b>${rating.toFixed(1)}</b></div>
+  </div>`;
+}
+
+function renderVsScreen() {
+  const m = currentMatch();
+  const roundChamps = currentRound().length * 2;
+  $('vs-round').textContent = roundName(roundChamps);
+  $('vs-match').textContent = `Match ${TOURNAMENT.currentMatch + 1} of ${currentRound().length}`;
+
+  $('vs-cards').innerHTML =
+    championCardHTML(m.a, 'a') +
+    `<div class="vs-badge">⚔ VS ⚔</div>` +
+    championCardHTML(m.b, 'b');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BATTLE STATE (single match)
+// ═══════════════════════════════════════════════════════════════════
+let battleState = null;
+/* {
+     catIndex: 0,
+     spinning: false,
+     lastResult: null,
+     history: []   // for undo
+   } */
+
+function startMatch() {
+  const m = currentMatch();
+  if (!m.a || !m.b) { // shouldn't happen (byes auto-resolved) but guard
+    m.winner = m.a ? 'a' : 'b'; m.done = true;
+    advanceAfterMatch(); return;
+  }
+  battleState = { catIndex: m.catResults.length, spinning: false, lastResult: null };
+  renderBattleScreen();
+  showScreen('screen-battle');
+}
+
+function renderBattleScreen() {
+  const m = currentMatch();
+  const catKey = CATEGORY_ORDER[battleState.catIndex];
+  const cat = CATEGORIES[catKey];
+
+  $('cat-name').textContent = cat.label;
+  $('cat-name').className = 'category-name ' + cat.cls;
+  $('cat-desc').textContent = cat.desc;
+
+  $('score-name-a').textContent = champLabel(m.a);
+  $('score-name-b').textContent = champLabel(m.b);
+  $('score-a').textContent = m.scoreA;
+  $('score-b').textContent = m.scoreB;
+
+  const wA = cat.fn(m.a);
+  const wB = cat.fn(m.b);
+  const odds = calculateOdds(wA, wB);
+
+  $('odds-pct-a').textContent = Math.round(odds.a * 100) + '%';
+  $('odds-pct-b').textContent = Math.round(odds.b * 100) + '%';
+  $('odds-wt-a').textContent = 'Weight ' + wA.toFixed(1);
+  $('odds-wt-b').textContent = 'Weight ' + wB.toFixed(1);
+  $('odds-nm-a').textContent = champLabel(m.a);
+  $('odds-nm-b').textContent = champLabel(m.b);
+
+  renderFormula('formula-a', m.a, cat, 'a');
+  renderFormula('formula-b', m.b, cat, 'b');
+
+  $('result-banner').textContent = '';
+  $('result-banner').className = 'battle-result-banner';
+
+  // Buttons
+  $('btn-spin').disabled = false;
+  $('btn-spin').style.display = '';
+  $('btn-continue').disabled = true;
+  $('btn-replay').disabled = true;
+
+  drawBattleWheel(0, odds, null);
+}
+
+function renderFormula(elId, c, cat, side) {
+  const bd = cat.bd(c);
+  const total = cat.fn(c);
+  const rows = bd.map(([k, v]) =>
+    `<div class="fr"><span>${k}</span><span>${v > 0 ? '+' : ''}${(+v).toFixed(v % 1 === 0 ? 0 : 1)}</span></div>`
+  ).join('');
+  $(elId).className = 'formula-box ' + side;
+  $(elId).innerHTML =
+    `<div class="fh">${champLabel(c)}</div>${rows}` +
+    `<div class="fr total"><span>Weight</span><span>${total.toFixed(1)}</span></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SPIN + WHEEL RENDER
+// ═══════════════════════════════════════════════════════════════════
+let wheelAngle = 0;
+let spinRaf = null;
+
+function drawBattleWheel(rotation, odds, winnerSide) {
+  const cv = $('battle-canvas');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 6;
+  ctx.clearRect(0, 0, W, H);
+
+  // Two arcs sized by odds
+  const aAng = odds.a * Math.PI * 2;
+  const segs = [
+    { start: 0, end: aAng, color: '#2a6ad0', deep: '#16407e', side: 'a' },
+    { start: aAng, end: Math.PI * 2, color: '#d03a2a', deep: '#7a1e14', side: 'b' },
+  ];
+
+  segs.forEach(s => {
+    const grad = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
+    grad.addColorStop(0, s.color);
+    grad.addColorStop(1, s.deep);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, s.start + rotation, s.end + rotation);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  // Percentage labels on arcs
+  ctx.save();
+  ctx.font = "900 22px 'Cinzel', serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  [{ mid: aAng / 2, pct: odds.a }, { mid: aAng + (Math.PI * 2 - aAng) / 2, pct: odds.b }].forEach(l => {
+    if (l.pct < 0.06) return;
+    const ang = l.mid + rotation;
+    const lr = R * 0.62;
+    ctx.fillText(Math.round(l.pct * 100) + '%', cx + Math.cos(ang) * lr, cy + Math.sin(ang) * lr);
+  });
+  ctx.restore();
+
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#d4a820';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Hub
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.14, 0, Math.PI * 2);
+  ctx.fillStyle = '#1c1710';
+  ctx.fill();
+  ctx.strokeStyle = '#d4a820';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Pointer (top)
+  ctx.beginPath();
+  ctx.moveTo(cx - 12, 2);
+  ctx.lineTo(cx + 12, 2);
+  ctx.lineTo(cx, 26);
+  ctx.closePath();
+  ctx.fillStyle = '#f5e080';
+  ctx.fill();
+  ctx.strokeStyle = '#7a5a08';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function spinBattle() {
+  if (battleState.spinning) return;
+  const m = currentMatch();
+  const catKey = CATEGORY_ORDER[battleState.catIndex];
+  const cat = CATEGORIES[catKey];
+  const wA = cat.fn(m.a);
+  const wB = cat.fn(m.b);
+  const odds = calculateOdds(wA, wB);
+
+  // Decide winner by weighted random
+  const roll = Math.random() * (wA + wB);
+  const winnerSide = roll < wA ? 'a' : 'b';
+
+  // Winner arc must land under the top pointer (pointer at -90° = 1.5π in canvas coords, i.e. -PI/2)
+  const aAng = odds.a * Math.PI * 2;
+  const pointerAngle = -Math.PI / 2; // top
+  // Choose a random target angle inside the winning arc
+  let segStart, segEnd;
+  if (winnerSide === 'a') { segStart = 0; segEnd = aAng; }
+  else { segStart = aAng; segEnd = Math.PI * 2; }
+  const margin = (segEnd - segStart) * 0.12;
+  const targetMid = segStart + margin + Math.random() * ((segEnd - segStart) - 2 * margin);
+
+  // We need rotation so that (targetMid + rotation) == pointerAngle (mod 2π)
+  const baseTurns = 5 * Math.PI * 2;
+  let finalRotation = pointerAngle - targetMid;
+  // normalize then add spins
+  finalRotation = ((finalRotation % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+  finalRotation += baseTurns;
+
+  battleState.spinning = true;
+  $('btn-spin').disabled = true;
+  $('result-banner').textContent = '';
+
+  const startRot = wheelAngle % (Math.PI * 2);
+  const startTime = performance.now();
+  const dur = 3600 + Math.random() * 800;
+
+  function frame(now) {
+    const t = Math.min(1, (now - startTime) / dur);
+    const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    wheelAngle = startRot + (finalRotation - startRot) * ease;
+    drawBattleWheel(wheelAngle, odds, null);
+    if (t < 1) {
+      spinRaf = requestAnimationFrame(frame);
+    } else {
+      wheelAngle = finalRotation;
+      drawBattleWheel(wheelAngle, odds, winnerSide);
+      battleState.spinning = false;
+      finishSpin(winnerSide, odds, wA, wB);
+    }
+  }
+  spinRaf = requestAnimationFrame(frame);
+}
+
+function finishSpin(winnerSide, odds, wA, wB) {
+  const m = currentMatch();
+  const catKey = CATEGORY_ORDER[battleState.catIndex];
+  const winnerOdds = winnerSide === 'a' ? odds.a : odds.b;
+  const isUpset = winnerOdds < BATTLE_CONFIG.upsetThreshold;
+
+  // record
+  m.catResults.push({
+    cat: catKey, winner: winnerSide,
+    wA, wB, oddsA: odds.a, upset: isUpset
+  });
+  if (winnerSide === 'a') m.scoreA++; else m.scoreB++;
+
+  $('score-a').textContent = m.scoreA;
+  $('score-b').textContent = m.scoreB;
+
+  const winnerName = winnerSide === 'a' ? champLabel(m.a) : champLabel(m.b);
+  const banner = $('result-banner');
+  if (isUpset) {
+    banner.innerHTML = `⚡ UPSET! ${winnerName} wins ${CATEGORIES[catKey].label}!`;
+    banner.className = 'battle-result-banner upset-flash';
+  } else {
+    banner.innerHTML = `${winnerName} wins ${CATEGORIES[catKey].label}`;
+    banner.className = 'battle-result-banner';
+    banner.style.color = winnerSide === 'a' ? '#6aa0f0' : '#f0806a';
+  }
+
+  saveTournament();
+
+  // Check match over (best of 3 → first to 2, but we play all 3 for show unless decided)
+  const decided = m.scoreA === 2 || m.scoreB === 2;
+  const allPlayed = m.catResults.length >= CATEGORY_ORDER.length;
+
+  $('btn-spin').style.display = 'none';
+  $('btn-replay').disabled = false;
+
+  if (decided || allPlayed) {
+    m.winner = m.scoreA > m.scoreB ? 'a' : 'b';
+    $('btn-continue').disabled = false;
+    $('btn-continue').textContent = 'See Result →';
+  } else {
+    $('btn-continue').disabled = false;
+    $('btn-continue').textContent = 'Next Category →';
+  }
+}
+
+function continueBattle() {
+  const m = currentMatch();
+  const decided = m.scoreA === 2 || m.scoreB === 2;
+  const allPlayed = m.catResults.length >= CATEGORY_ORDER.length;
+
+  if (decided || allPlayed) {
+    m.winner = m.scoreA > m.scoreB ? 'a' : 'b';
+    m.done = true;
+    saveTournament();
+    renderMatchResult();
+    showScreen('screen-matchresult');
+  } else {
+    battleState.catIndex++;
+    renderBattleScreen();
+  }
+}
+
+function replayWheel() {
+  // Re-spin the SAME category (does not change already-recorded result)
+  // Only allowed before continuing; we pop the last result first.
+  const m = currentMatch();
+  if (battleState.spinning) return;
+  const last = m.catResults.pop();
+  if (last) {
+    if (last.winner === 'a') m.scoreA--; else m.scoreB--;
+  }
+  saveTournament();
+  renderBattleScreen();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MATCH RESULT
+// ═══════════════════════════════════════════════════════════════════
+function renderMatchResult() {
+  const m = currentMatch();
+  const winner = m.winner === 'a' ? m.a : m.b;
+  const loser  = m.winner === 'a' ? m.b : m.a;
+  const anyUpset = m.catResults.some(r => r.upset);
+
+  const catLines = m.catResults.map(r => {
+    const wn = r.winner === 'a' ? champLabel(m.a) : champLabel(m.b);
+    return `<div class="fr" style="display:flex;justify-content:space-between;font-size:12px;color:#b0a480;padding:3px 0;">
+      <span>${CATEGORIES[r.cat].label}</span>
+      <span style="color:${r.winner==='a'?'#6aa0f0':'#f0806a'};font-weight:700;">${wn}${r.upset?' ⚡':''}</span>
+    </div>`;
+  }).join('');
+
+  $('mr-content').innerHTML = `
+    <div class="deco" style="font-size:13px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;">Match Result</div>
+    ${anyUpset ? '<div class="upset-flash" style="font-family:Cinzel Decorative,serif;font-size:16px;margin:8px 0;">⚡ UPSET VICTORY ⚡</div>' : ''}
+    <div class="goat-crown" style="font-size:36px;">🏅</div>
+    <div class="goat-name fantasy-heading" style="font-size:26px;">${champLabel(winner)}</div>
+    <div style="color:#8a7a50;font-size:12px;margin-bottom:4px;">defeats ${champLabel(loser)}</div>
+    <div style="font-family:Cinzel,serif;font-size:26px;color:#fff;font-weight:900;margin:6px 0;">
+      ${m.winner==='a'?m.scoreA:m.scoreB} — ${m.winner==='a'?m.scoreB:m.scoreA}
+    </div>
+    <div class="goat-section" style="max-width:300px;margin:12px auto;">
+      <h4>Category Breakdown</h4>${catLines}
+    </div>
+    <button class="btn primary wide" id="btn-advance" style="max-width:300px;margin:8px auto 0;">Continue Tournament →</button>
+    <button class="btn ghost wide" id="btn-view-bracket-mr" style="max-width:300px;margin:8px auto 0;">View Bracket 🏆</button>
+  `;
+  $('btn-advance').onclick = advanceAfterMatch;
+  $('btn-view-bracket-mr').onclick = openBracket;
+}
+
+function advanceAfterMatch() {
+  battleState = null;
+  advanceIfRoundComplete();
+  if (TOURNAMENT.goat) return;
+  goToCurrentMatch();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GOAT SCREEN
+// ═══════════════════════════════════════════════════════════════════
+function renderGoat() {
+  const c = TOURNAMENT.goat;
+  if (!c) { $('goat-content').innerHTML = '<div>No champion.</div>'; return; }
+  const rating = getTotalBattleRating(c);
+  $('goat-content').innerHTML = `
+    <div class="goat-crown">👑</div>
+    <div class="goat-label">The GOAT</div>
+    <div class="goat-name fantasy-heading">${c.name}</div>
+    <div style="color:#b0a074;font-size:13px;margin-bottom:4px;">${championOrigin(c)}${c.profession?` · ${c.profession}`:''}</div>
+    <div style="font-family:Cinzel,serif;color:var(--gold);font-size:12px;letter-spacing:2px;margin-bottom:12px;">SEASON 1 CHAMPION</div>
+
+    <div class="goat-section">
+      <h4>Final Stats</h4>
+      ${statGrid(c)}
+    </div>
+    <div class="goat-section">
+      <h4>Loadout</h4>
+      ${gearRows(c)}
+      ${comboChips(c)}
+    </div>
+    <div class="goat-section" style="text-align:center;">
+      <h4>Battle Rating</h4>
+      <div style="font-family:Cinzel,serif;font-size:32px;font-weight:900;color:var(--gold-bright);">${rating.toFixed(1)}</div>
+      <div style="font-size:10px;color:#7a6e4a;margin-top:4px;">
+        ATK ${calculateAttackWeight(c).toFixed(1)} · DEF ${calculateDefenseWeight(c).toFixed(1)} · SPC ${calculateSpecialWeight(c).toFixed(1)}
+      </div>
+    </div>
+
+    <button class="btn primary wide" id="btn-goat-bracket" style="max-width:320px;margin:8px 0;">View Full Bracket 🏆</button>
+    <button class="btn wide" id="btn-goat-new" style="max-width:320px;margin:4px 0;">New Tournament</button>
+  `;
+  $('btn-goat-bracket').onclick = openBracket;
+  $('btn-goat-new').onclick = () => {
+    if (confirm('Start a new tournament? Current results will be cleared.')) {
+      localStorage.removeItem(STORAGE_KEY);
+      TOURNAMENT = null;
+      showScreen('screen-start');
+      $('import-status').innerHTML = '';
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BRACKET OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+function openBracket() {
+  const body = $('bracket-body');
+  let html = '';
+  TOURNAMENT.bracket.forEach((round, ri) => {
+    const rn = roundName(round.length * 2);
+    html += `<div class="round-col"><h3>${rn}</h3>`;
+    round.forEach((m, mi) => {
+      const aWin = m.done && m.winner === 'a';
+      const bWin = m.done && m.winner === 'b';
+      const aCls = m.done ? (aWin ? 'winner' : (m.a ? 'loser' : 'pending')) : 'pending';
+      const bCls = m.done ? (bWin ? 'winner' : (m.b ? 'loser' : 'pending')) : 'pending';
+      const scoreStr = m.done && !m.bye ? `${m.scoreA}-${m.scoreB}` : (m.bye ? 'BYE' : '');
+      html += `<div class="bracket-match">
+        <span class="bm-num">${mi + 1}</span>
+        <div class="bm-champs">
+          <div class="bm-c ${aCls}"><span>${champLabel(m.a)}</span><span class="bm-score">${aWin?scoreStr.split('-')[0]:''}</span></div>
+          <div class="bm-c ${bCls}"><span>${champLabel(m.b)}</span><span class="bm-score">${bWin?scoreStr.split('-')[1]:''}</span></div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  if (TOURNAMENT.goat) {
+    html += `<div class="round-col"><h3>Champion</h3>
+      <div class="bracket-match"><span class="bm-num">👑</span>
+      <div class="bm-champs"><div class="bm-c winner"><span>${champLabel(TOURNAMENT.goat)}</span></div></div></div></div>`;
+  }
+  body.innerHTML = html;
+  $('bracket-overlay').classList.add('active');
+}
+function closeBracket() { $('bracket-overlay').classList.remove('active'); }
+
+// ═══════════════════════════════════════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════════════════════════════════════
+function buildDemoChampions(n = 8) {
+  const races = ['Dragonborn','Angel','Demon','Titan','Mechanoid','Voidborn','Goblin','Elf','Human','Orc','Vampire','Phoenix'];
+  const profs = ['Blacksmith','Mage','Knight','Underdog','Final Boss','Tamer','Gambler','Berserker'];
+  const weapons = [['Excalibur','Legendary'],['Dragon Blade','Epic'],['Rusty Sword','Trash'],['Void Scythe','OP'],['Iron Axe','Common'],['Holy Lance','Rare']];
+  const armors = [['Dragon Plate','Legendary'],['Cloth','Trash'],['Void Mail','OP'],['Steel','Common'],['Blessed Aegis','Epic']];
+  const powers = [['Time Stop','OP'],['Fireball','Common'],['Reality Break','Legendary'],['Heal','Rare'],['None','None']];
+  const bcs = [['Blessing of Kings','Epic'],['Curse of Weakness','Trash'],['Perfect Fate','OP'],['Minor Luck','Common']];
+  const comps = [['Ancient Dragon','Legendary'],['Wolf','Common'],['Void Hound','Epic'],['Nothing','None']];
+  const rng = (a) => a[Math.floor(Math.random() * a.length)];
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const w = rng(weapons), ar = rng(armors), p = rng(powers), bc = rng(bcs), cp = rng(comps);
+    const combos = [];
+    if (Math.random() < 0.4) combos.push('Dragon Legacy');
+    if (Math.random() < 0.3) combos.push('Holy Arsenal');
+    if (Math.random() < 0.2) combos.push('Machine Complete');
+    out.push(normalizeChampion({
+      name: 'Champion ' + (i + 1),
+      race: rng(races), profession: rng(profs),
+      stats: {
+        STR: Math.floor(Math.random()*11), IQ: Math.floor(Math.random()*11),
+        SPD: Math.floor(Math.random()*11), DUR: Math.floor(Math.random()*11),
+        PM: Math.floor(Math.random()*11), DEF: Math.floor(Math.random()*11),
+      },
+      weapon: w[0], armor: ar[0], power: p[0], blessingCurse: bc[0], companion: cp[0],
+      tiers: { weapon: w[1], armor: ar[1], power: p[1], blessingCurse: bc[1], companion: cp[1] },
+      combos,
+    }, i));
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STAT EDITOR — manually correct champion stats/tiers
+// ═══════════════════════════════════════════════════════════════════
+let editorSide = null;
+
+const TIER_OPTIONS = ['None','Trash','Common','Uncommon','Rare','Epic','Legendary','OP'];
+
+function openStatEditor(side) {
+  editorSide = side;
+  const m = currentMatch();
+  const c = side === 'a' ? m.a : m.b;
+  if (!c) { toast('Kein Champion auf dieser Seite'); return; }
+
+  const statKeys = ['STR','IQ','SPD','DUR','PM','DEF'];
+  const tierKeys = [
+    ['weapon', 'Weapon'], ['power', 'Power'], ['armor', 'Armor'],
+    ['companion', 'Companion'], ['blessingCurse', 'Bless/Curse']
+  ];
+
+  const statFields = statKeys.map(k =>
+    `<div class="ed-field">
+      <label>${k}</label>
+      <input type="number" id="ed-stat-${k}" value="${c.stats[k] || 0}" min="0" max="99" step="1" oninput="updateEditorRating()">
+    </div>`
+  ).join('');
+
+  const tierFields = tierKeys.map(([key, label]) =>
+    `<div class="ed-field">
+      <label>${label} Tier</label>
+      <select id="ed-tier-${key}" onchange="updateEditorRating()">
+        ${TIER_OPTIONS.map(t => `<option value="${t}" ${c.tiers[key]===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>`
+  ).join('');
+
+  $('editor-body').innerHTML = `
+    <div class="ed-section-title">Champion-Name (Zuschauer)</div>
+    <div class="ed-field">
+      <input type="text" id="ed-name" value="${(c.name || '').replace(/"/g, '&quot;')}" maxlength="40" placeholder="Name eingeben..." style="text-align:center;font-family:'Cinzel Decorative',serif;">
+    </div>
+    <div class="editor-sub" style="margin-top:6px;">${championOrigin(c)}${c.profession?` · ${c.profession}`:''}</div>
+
+    <div class="ed-section-title">Stats</div>
+    <div class="ed-stat-grid">${statFields}</div>
+
+    <div class="ed-section-title">Item-Tiers (Kampf-Bonus)</div>
+    <div class="ed-tier-grid">${tierFields}</div>
+
+    <div class="ed-live-rating">Neues Battle Rating: <b id="ed-rating-live">${getTotalBattleRating(c).toFixed(1)}</b></div>
+  `;
+
+  $('editor-overlay').classList.add('active');
+  setTimeout(() => $('ed-name')?.focus(), 100);
+}
+
+// Build a temporary champion from the current editor inputs (for live preview)
+function readEditorChampion(base) {
+  const clone = JSON.parse(JSON.stringify(base));
+  ['STR','IQ','SPD','DUR','PM','DEF'].forEach(k => {
+    const el = $('ed-stat-' + k);
+    if (el) clone.stats[k] = Number(el.value) || 0;
+  });
+  ['weapon','power','armor','companion','blessingCurse'].forEach(key => {
+    const el = $('ed-tier-' + key);
+    if (el) clone.tiers[key] = el.value;
+  });
+  return clone;
+}
+
+function updateEditorRating() {
+  const m = currentMatch();
+  const base = editorSide === 'a' ? m.a : m.b;
+  if (!base) return;
+  const preview = readEditorChampion(base);
+  const el = $('ed-rating-live');
+  if (el) el.textContent = getTotalBattleRating(preview).toFixed(1);
+}
+
+function saveStatEditor() {
+  const m = currentMatch();
+  const c = editorSide === 'a' ? m.a : m.b;
+  if (!c) return;
+
+  // Name
+  const nameEl = $('ed-name');
+  if (nameEl) {
+    const newName = nameEl.value.trim();
+    if (newName) c.name = newName;
+  }
+
+  // Write values back onto the real champion object
+  ['STR','IQ','SPD','DUR','PM','DEF'].forEach(k => {
+    const el = $('ed-stat-' + k);
+    if (el) c.stats[k] = Number(el.value) || 0;
+  });
+  ['weapon','power','armor','companion','blessingCurse'].forEach(key => {
+    const el = $('ed-tier-' + key);
+    if (el) c.tiers[key] = el.value;
+  });
+
+  // Also update the champion in the master champions list (so it persists across rounds)
+  syncChampionToRoster(c);
+
+  saveTournament();
+  closeStatEditor();
+  renderVsScreen();
+  toast('Gespeichert ✓');
+}
+
+// Keep the master roster in sync so edits survive into later rounds
+function syncChampionToRoster(edited) {
+  if (!TOURNAMENT || !Array.isArray(TOURNAMENT.champions)) return;
+  let idx = -1;
+  if (edited.id !== undefined) idx = TOURNAMENT.champions.findIndex(x => x && x.id === edited.id);
+  if (idx < 0) idx = TOURNAMENT.champions.findIndex(x => x && x.name === edited.name);
+  if (idx >= 0) {
+    TOURNAMENT.champions[idx].name = edited.name;
+    TOURNAMENT.champions[idx].stats = { ...edited.stats };
+    TOURNAMENT.champions[idx].tiers = { ...edited.tiers };
+  }
+}
+
+function closeStatEditor() {
+  $('editor-overlay').classList.remove('active');
+  editorSide = null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EVENT WIRING
+// ═══════════════════════════════════════════════════════════════════
+$('btn-import').onclick = () => $('file-input').click();
+$('file-input').onchange = (e) => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+
+  // Read every selected file, then merge all champions into one list
+  Promise.all(files.map(readFileAsChampions))
+    .then(results => {
+      const merged = [];
+      const errors = [];
+      results.forEach(r => {
+        if (r.error) errors.push(`${r.name}: ${r.error}`);
+        else merged.push(...r.champions);
+      });
+
+      if (!merged.length) {
+        $('import-status').innerHTML =
+          `<span class="err">Kein Champion gefunden.</span>` +
+          (errors.length ? `<br><span class="warn">${errors.join('<br>')}</span>` : '');
+        return;
+      }
+
+      // Re-index merged champions so every champion has a unique id
+      merged.forEach((c, i) => { c.id = i; });
+
+      // Build the load note, then pass it in so the Create button handler survives
+      const fileWord = files.length === 1 ? 'Datei' : 'Dateien';
+      let note = `<br><span class="ok">${files.length} ${fileWord} geladen.</span>`;
+      if (errors.length) note += `<br><span class="warn">Übersprungen:<br>${errors.join('<br>')}</span>`;
+
+      handleImportedChampions(merged, note);
+    });
+
+  e.target.value = '';
+};
+
+// Read a single file → { name, champions[] } or { name, error }
+function readFileAsChampions(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json = JSON.parse(ev.target.result);
+        const list = parseChampionsPayload(json);
+        resolve({ name: file.name, champions: list });
+      } catch (err) {
+        resolve({ name: file.name, error: err.message });
+      }
+    };
+    reader.onerror = () => resolve({ name: file.name, error: 'Datei nicht lesbar' });
+    reader.readAsText(file);
+  });
+}
+$('btn-load').onclick = () => {
+  if (loadTournament()) {
+    toast('Tournament loaded');
+    if (TOURNAMENT.goat) { renderGoat(); showScreen('screen-goat'); }
+    else goToCurrentMatch();
+  } else {
+    $('import-status').innerHTML = `<span class="warn">No saved tournament found.</span>`;
+  }
+};
+$('btn-demo').onclick = () => {
+  const demo = buildDemoChampions(8);
+  handleImportedChampions(demo);
+  toast('Demo champions ready — click Create Tournament');
+};
+
+$('btn-begin-match').onclick = startMatch;
+$('editor-close').onclick = closeStatEditor;
+$('editor-cancel').onclick = closeStatEditor;
+$('editor-save').onclick = saveStatEditor;
+$('vs-bracket-btn').onclick = openBracket;
+$('vs-menu-btn').onclick = () => {
+  if (confirm('Return to start screen? Progress is saved.')) showScreen('screen-start');
+};
+$('bracket-close').onclick = closeBracket;
+
+$('btn-spin').onclick = spinBattle;
+$('btn-continue').onclick = continueBattle;
+$('btn-replay').onclick = replayWheel;
+$('btn-restart-match').onclick = () => {
+  if (!confirm('Restart this match? Category results will be cleared.')) return;
+  const m = currentMatch();
+  m.scoreA = 0; m.scoreB = 0; m.catResults = []; m.winner = null; m.done = false;
+  battleState = { catIndex: 0, spinning: false, lastResult: null };
+  saveTournament();
+  renderBattleScreen();
+};
+$('btn-undo').onclick = () => {
+  const m = currentMatch();
+  if (!m.catResults.length) { toast('Nothing to undo'); return; }
+  const last = m.catResults.pop();
+  if (last.winner === 'a') m.scoreA--; else m.scoreB--;
+  battleState.catIndex = m.catResults.length;
+  saveTournament();
+  renderBattleScreen();
+  toast('Last result undone');
+};
+
+// Auto-load existing tournament on open
+window.addEventListener('DOMContentLoaded', () => {
+  if (loadTournament() && TOURNAMENT) {
+    // Offer to resume via status hint
+    $('import-status').innerHTML = `<span class="ok">✓ Saved tournament found — click "Load Saved Tournament".</span>`;
+  }
+});
+</script>
+<!-- SCRIPT CONTINUES IN NEXT BLOCK -->
+</body>
+</html>
